@@ -18,6 +18,7 @@ jobs:
   # This workflow contains a single job called "deploy"
   deploy:
     runs-on: ubuntu-latest
+
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
@@ -27,8 +28,7 @@ jobs:
         run: |
           curl -O https://sfc-repo.snowflakecomputing.com/snowsql/bootstrap/1.2/linux_x86_64/snowsql-1.2.9-linux_x86_64.bash
           SNOWSQL_DEST=~/bin SNOWSQL_LOGIN_SHELL=~/.profile bash snowsql-1.2.9-linux_x86_64.bash
-
-      - name: RUn Command
+    
+      - name: Create or update Stored PRocedure
         run: |
           ~/bin/snowsql -q "ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH" --temporary-connection --account ve05214.ap-southeast-1 --user Meghana --password Meghanasri@5 --role ACCOUNTADMIN --warehouse COMPUTE_WH
-
