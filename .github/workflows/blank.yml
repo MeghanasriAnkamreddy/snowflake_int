@@ -1,43 +1,39 @@
-name: Deploy data pipeline to prod
+name: Install SnowSQL
 
 on:
   push:
     branches:
       - main
 
-  workflow_dispatch:
-
 jobs:
-  deploy:
+  install-snowSQL:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-      - name: Setup Python 3.10
-        uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v2
         with:
-          python-version: '3.10'
+          python-version: '3.8'  # Specify the Python version if needed
 
-      - name: Download SnowSQL Installer
+      - name: Install dependencies
         run: |
-          wget https://sfc-repo.snowflakecomputing.com/snowsql/bootstrap/1.2/linux_x86_64/snowsql-1.2.24-linux_x86_64.bash -O snowsql_install.bash
-          # Verify file downloaded
-          ls -lh snowsql_install.bash
+          sudo apt-get update
+          sudo apt-get install -y curl  # Ensure curl is installed
 
-      - name: Install SnowSQL
+      - name: Download SnowSQL
         run: |
-          chmod +x snowsql_install.bash
-          # Run the installer and capture output
-          ./snowsql_install.bash -b ~/bin || { echo "SnowSQL installation failed"; exit 1; }
-
-          # Add SnowSQL to PATH
-          echo "export PATH=~/bin:\$PATH" >> $GITHUB_ENV
+          # Download the latest SnowSQL package
+          curl -o snowsql-linux_x86_64_latest.tar.gz -L "https://sfc-repo.snowflakecomputing.com/snowsql/bootstrap/1.2.20/linux_x86_64/snowflake_snowsql_linux_x86_64_1.2.20.tar.gz"
+          
+      - name: Extract SnowSQL
+        run: |
+          tar -xzf snowsql-linux_x86_64_latest.tar.gz
+          cd snowflake_snowsql-linux_x86_64_1.2.20  # Change to the extracted directory
+          sudo ./install.sh  # Run the installation script
 
       - name: Verify SnowSQL installation
         run: |
-          # Ensure SnowSQL is added to PATH for this session
-          export PATH=~/bin:$PATH
-          # Check the SnowSQL version and capture output
-          ~/bin/snowsql -v || { echo "SnowSQL not found"; exit 1; }
+          snowsql --version  # Check the installed version
