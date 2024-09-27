@@ -22,12 +22,20 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Download and Install SnowSQL
+        run: |
+          # Download SnowSQL installer
+          wget https://sfc-repo.snowflakecomputing.com/snowsql/bootstrap/1.2/linux_x86_64/snowsql-1.2.24-linux_x86_64.bash
+          
+          # Install SnowSQL
+          sudo bash snowsql-1.2.24-linux_x86_64.bash -b ~/bin
+
+          # Ensure SnowSQL is available in the PATH
+          export PATH=~/bin:$PATH
+
+          # Verify SnowSQL installation
+          snowsql -v
+
       - name: Deploy data pipeline
-        env:
-          SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
-          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
-          SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
-          SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE}}
         run: |
           snow sql -q "ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH" --temporary-connection --account ve05214.ap-southeast-1 --user Meghana --password Meghanasri@5 --role ACCOUNTADMIN --warehouse COMPUTE_WH
