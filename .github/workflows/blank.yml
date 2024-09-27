@@ -13,11 +13,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Set up Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: '3.8'  # Specify the Python version if needed
-
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -26,12 +21,12 @@ jobs:
       - name: Download SnowSQL
         run: |
           # Download the latest SnowSQL package
-          curl -o snowsql-linux_x86_64_latest.tar.gz -L "https://sfc-repo.snowflakecomputing.com/snowsql/bootstrap/1.2.20/linux_x86_64/snowflake_snowsql_linux_x86_64_1.2.20.tar.gz"
-          
+          curl -o snowsql-linux_x86_64.tar.gz -L "https://sfc-repo.snowflakecomputing.com/snowsql/bootstrap/1.2.20/linux_x86_64/snowflake_snowsql_linux_x86_64_1.2.20.tar.gz"
+
       - name: Extract SnowSQL
         run: |
-          tar -xzf snowsql-linux_x86_64_latest.tar.gz
-          cd snowflake_snowsql-linux_x86_64_1.2.20  # Change to the extracted directory
+          tar -xzf snowsql-linux_x86_64.tar.gz  # Ensure the correct file name here
+          cd snowflake_snowsql_linux_x86_64_1.2.20  # Change to the extracted directory
           sudo ./install.sh  # Run the installation script
 
       - name: Verify SnowSQL installation
