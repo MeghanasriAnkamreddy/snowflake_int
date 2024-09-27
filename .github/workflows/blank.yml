@@ -24,28 +24,30 @@ jobs:
 
       - name: Download SnowSQL Installer
         run: |
-          # Download SnowSQL installer with logging
           wget https://sfc-repo.snowflakecomputing.com/snowsql/bootstrap/1.2/linux_x86_64/snowsql-1.2.24-linux_x86_64.bash \
           -O snowsql_install.bash
 
-          # Verify file was downloaded
+          # Verify file downloaded
           ls -lh snowsql_install.bash
 
-      - name: Install SnowSQL with Logging
+      - name: Install SnowSQL
         run: |
-          # Give execution permissions
           chmod +x snowsql_install.bash
+          sudo ./snowsql_install.bash -b ~/bin
 
-          # Attempt installation with debug logging
-          sudo bash snowsql_install.bash -b ~/bin | tee snowsql_install.log
+          # Add SnowSQL to PATH
+          echo "export PATH=~/bin:\$PATH" >> ~/.bashrc
+          source ~/.bashrc
 
-          # Check the log file for errors
-          cat snowsql_install.log
+          # Verify SnowSQL installation
+          ~/bin/snowsql -v
 
       - name: Verify SnowSQL Installation
         run: |
-          # Verify if SnowSQL was installed successfully
+          # Ensure SnowSQL is added to PATH for this session
           export PATH=~/bin:$PATH
+
+          # Check the SnowSQL version
           snowsql -v
 
       - name: Deploy data pipeline
