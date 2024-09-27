@@ -22,28 +22,22 @@ jobs:
 
       - name: Download SnowSQL Installer
         run: |
-          wget https://sfc-repo.snowflakecomputing.com/snowsql/bootstrap/1.2/linux_x86_64/snowsql-1.2.24-linux_x86_64.bash \
-          -O snowsql_install.bash
-
+          wget https://sfc-repo.snowflakecomputing.com/snowsql/bootstrap/1.2/linux_x86_64/snowsql-1.2.24-linux_x86_64.bash -O snowsql_install.bash
           # Verify file downloaded
           ls -lh snowsql_install.bash
 
       - name: Install SnowSQL
         run: |
           chmod +x snowsql_install.bash
+          # Run the installer and capture output
           ./snowsql_install.bash -b ~/bin || { echo "SnowSQL installation failed"; exit 1; }
 
           # Add SnowSQL to PATH
-          echo "export PATH=~/bin:\$PATH" >> ~/.bashrc
           echo "export PATH=~/bin:\$PATH" >> $GITHUB_ENV
 
-          # Verify SnowSQL installation
-          ~/bin/snowsql -v || { echo "SnowSQL not found"; exit 1; }
-
-      - name: Verify SnowSQL Installation
+      - name: Verify SnowSQL installation
         run: |
           # Ensure SnowSQL is added to PATH for this session
           export PATH=~/bin:$PATH
-
-          # Check the SnowSQL version
-          snowsql -v || { echo "SnowSQL not found"; exit 1; }
+          # Check the SnowSQL version and capture output
+          ~/bin/snowsql -v || { echo "SnowSQL not found"; exit 1; }
