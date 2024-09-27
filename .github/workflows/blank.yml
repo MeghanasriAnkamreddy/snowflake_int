@@ -22,9 +22,6 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install Python packages
-        run: pip install -r requirements.txt
-
       - name: Deploy data pipeline
         env:
           SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
