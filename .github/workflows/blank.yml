@@ -17,23 +17,35 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Python 3.11
+      - name: Setup Python 3.10
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.10'
 
-      - name: Download and Install SnowSQL
+      - name: Download SnowSQL Installer
         run: |
-          # Download SnowSQL installer
-          wget https://sfc-repo.snowflakecomputing.com/snowsql/bootstrap/1.2/linux_x86_64/snowsql-1.2.24-linux_x86_64.bash
-          
-          # Install SnowSQL
-          sudo bash snowsql-1.2.24-linux_x86_64.bash -b ~/bin
+          # Download SnowSQL installer with logging
+          wget https://sfc-repo.snowflakecomputing.com/snowsql/bootstrap/1.2/linux_x86_64/snowsql-1.2.24-linux_x86_64.bash \
+          -O snowsql_install.bash
 
-          # Ensure SnowSQL is available in the PATH
+          # Verify file was downloaded
+          ls -lh snowsql_install.bash
+
+      - name: Install SnowSQL with Logging
+        run: |
+          # Give execution permissions
+          chmod +x snowsql_install.bash
+
+          # Attempt installation with debug logging
+          sudo bash snowsql_install.bash -b ~/bin | tee snowsql_install.log
+
+          # Check the log file for errors
+          cat snowsql_install.log
+
+      - name: Verify SnowSQL Installation
+        run: |
+          # Verify if SnowSQL was installed successfully
           export PATH=~/bin:$PATH
-
-          # Verify SnowSQL installation
           snowsql -v
 
       - name: Deploy data pipeline
