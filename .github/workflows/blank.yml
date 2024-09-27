@@ -1,12 +1,10 @@
 name: Deploy data pipeline to prod
 
-# Controls when the action will run.
 on:
   push:
     branches:
       - main
 
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
 jobs:
@@ -33,14 +31,14 @@ jobs:
       - name: Install SnowSQL
         run: |
           chmod +x snowsql_install.bash
-          sudo ./snowsql_install.bash -b ~/bin
+          ./snowsql_install.bash -b ~/bin || { echo "SnowSQL installation failed"; exit 1; }
 
           # Add SnowSQL to PATH
           echo "export PATH=~/bin:\$PATH" >> ~/.bashrc
-          source ~/.bashrc
+          echo "export PATH=~/bin:\$PATH" >> $GITHUB_ENV
 
           # Verify SnowSQL installation
-          ~/bin/snowsql -v
+          ~/bin/snowsql -v || { echo "SnowSQL not found"; exit 1; }
 
       - name: Verify SnowSQL Installation
         run: |
@@ -48,8 +46,4 @@ jobs:
           export PATH=~/bin:$PATH
 
           # Check the SnowSQL version
-          snowsql -v
-
-      - name: Deploy data pipeline
-        run: |
-          snow sql -q "ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH" --temporary-connection --account ve05214.ap-southeast-1 --user Meghana --password Meghanasri@5 --role ACCOUNTADMIN --warehouse COMPUTE_WH
+          snowsql -v || { echo "SnowSQL not found"; exit 1; }
