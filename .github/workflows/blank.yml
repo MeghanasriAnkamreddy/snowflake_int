@@ -1,34 +1,33 @@
-name: Install SnowSQL
+# Very basic GitHub Action workflow, goes in ~/.github/workflows/deploy.yaml
 
+name: CI
+
+# Controls when the workflow will run
 on:
+  # Triggers the workflow on any branch or tag commit
   push:
     branches:
-      - main
+      - "*"
+    tags:
+      - "v*"
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
 
 jobs:
-  install-snowSQL:
+  # This workflow contains a single job called "deploy"
+  deploy:
     runs-on: ubuntu-latest
-
+    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
 
-      - name: Install dependencies
+      - name: Install SnowSQL
         run: |
-          sudo apt-get update
-          sudo apt-get install -y curl  # Ensure curl is installed
-
-      - name: Download SnowSQL
+          curl -O https://sfc-repo.snowflakecomputing.com/snowsql/bootstrap/1.2/linux_x86_64/snowsql-1.2.9-linux_x86_64.bash
+          SNOWSQL_DEST=~/bin SNOWSQL_LOGIN_SHELL=~/.profile bash snowsql-1.2.9-linux_x86_64.bash
+      - name: Upload artifact to SnowSQL
         run: |
-          # Download the latest SnowSQL package
-          curl -o snowsql-linux_x86_64.tar.gz -L "https://sfc-repo.snowflakecomputing.com/snowsql/bootstrap/1.2.20/linux_x86_64/snowflake_snowsql_linux_x86_64_1.2.20.tar.gz"
-
-      - name: Extract SnowSQL
-        run: |
-          tar -xzf snowsql-linux_x86_64.tar.gz  # Ensure the correct file name here
-          cd snowflake_snowsql_linux_x86_64_1.2.20  # Change to the extracted directory
-          sudo ./install.sh  # Run the installation script
-
-      - name: Verify SnowSQL installation
-        run: |
-          snowsql --version  # Check the installed version
+          ~/bin/snowsql -q 'put file://'$(pwd)'/storedproc.py @~/${{ github.ref_name }} overwrite=true' -o friendly=false
+    
