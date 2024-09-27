@@ -26,9 +26,5 @@ jobs:
 
       - name: Install SnowSQL
         run: |
-          curl -O https://sfc-repo.snowflakecomputing.com/snowsql/bootstrap/1.2/linux_x86_64/snowsql-1.2.9-linux_x86_64.bash
-          SNOWSQL_DEST=~/bin SNOWSQL_LOGIN_SHELL=~/.profile bash snowsql-1.2.9-linux_x86_64.bash
-    
-      - name: Create or update Stored PRocedure
-        run: |
-          ~/bin/snowsql -q "ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH" --temporary-connection --account ve05214.ap-southeast-1 --user Meghana --password Meghanasri@5 --role ACCOUNTADMIN --warehouse COMPUTE_WH
+          curl -O https://sfc-repo.snowflakecomputing.com/snowsql/bootstrap/latest/linux_x86_64/snowsql-linux_x86_64_latest.bashSNOWSQL_DEST=~/bin
+          SNOWSQL_LOGIN_SHELL=~/.profile bash snowsql-linux_x86_64_latest.bash
