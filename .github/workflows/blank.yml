@@ -1,35 +1,37 @@
-name: Deploy SQL Scripts to Snowflake
+name: Deploy data pipeline to prod
 
+# Controls when the action will run.
 on:
   push:
     branches:
-      - main  # Trigger only on the main branch
+      - main
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Install SnowSQL
-        run: |
-          sudo apt-get update
-          sudo apt-get install snowsql
+      - name: Setup Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-      - name: Deploy all SQL scripts
+      - name: Install Python packages
+        run: pip install -r requirements.txt
+
+      - name: Deploy data pipeline
         env:
           SNOWFLAKE_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
           SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
           SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
-          SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
-          SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
+          SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE}}
         run: |
-          for file in $(find sql/ -name '*.sql'); do
-            echo "Running $file..."
-            snowsql -a $SNOWFLAKE_ACCOUNT -u $SNOWFLAKE_USER -p $SNOWFLAKE_PASSWORD \
-              -r $SNOWFLAKE_ROLE -w $SNOWFLAKE_WAREHOUSE -d $SNOWFLAKE_DATABASE \
-              -f $file
-          done
+          snow sql -q "ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH" --temporary-connection --account $SNOWFLAKE_ACCOUNT --user $SNOWFLAKE_USER --role $SNOWFLAKE_ROLE --warehouse $SNOWFLAKE_WAREHOUSE
+          snow sql -q "EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/SQL_SCRIPT.SQL" --temporary-connection --account $SNOWFLAKE_ACCOUNT --user $SNOWFLAKE_USER --role $SNOWFLAKE_ROLE --warehouse $SNOWFLAKE_WAREHOUSE
