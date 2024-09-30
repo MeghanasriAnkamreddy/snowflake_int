@@ -79,7 +79,13 @@ jobs:
               ~/bin/snowsql -q "
                 USE DATABASE CI_CD_DEMO;
                 USE SCHEMA DEMO_SCHEMA;
-                EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$file;" || {
+                BEGIN TRY;
+                EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$file;
+                COMMIT;
+                END TRY;
+                BEGIN CATCH;
+                ROLLBACK;
+                END CATCH;" || {
                 echo "Failed to run $file. Attempting to run previous version of the script."
 
                 # Get the previous version of the SQL file
@@ -89,7 +95,13 @@ jobs:
                 ~/bin/snowsql -q "
                   USE DATABASE CI_CD_DEMO;
                   USE SCHEMA DEMO_SCHEMA;
-                  EXECUTE IMMEDIATE FROM @snowflake_extensions/${previous_file};" || {
+                  BEGIN TRY;
+                  EXECUTE IMMEDIATE FROM @snowflake_extensions/${previous_file};
+                  COMMIT;
+                  END TRY;
+                  BEGIN CATCH;
+                  ROLLBACK;
+                  END CATCH;" || {
                   echo "Failed to run previous version of $file."
                   FAILED=1  # Mark as failed if both versions fail
                 }
@@ -105,3 +117,4 @@ jobs:
           else
             echo "No SQL files to execute."
           fi
+
