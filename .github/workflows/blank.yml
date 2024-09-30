@@ -48,3 +48,23 @@ jobs:
           else
             echo "No SQL files modified."
           fi
+
+      - name: Run SnowSQL for each modified SQL file
+        if: steps.modified_files.outputs.modified_files != ''
+        env:
+          SNOWSQL_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWSQL_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWSQL_PWD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWSQL_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
+          SNOWSQL_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+        run: |
+          ~/bin/snowsql -q "ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH;"
+          
+          # If any SQL files are found, execute them with SnowSQL
+          for file in $(cat sql_files.txt); do
+            echo "Running $file"
+            ~/bin/snowsql -q "
+              USE DATABASE CI_CD_DEMO;
+              USE SCHEMA DEMO_SCHEMA;
+              EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$file;"
+          done
