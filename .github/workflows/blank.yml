@@ -32,11 +32,9 @@ jobs:
           # Ensure we handle cases with no previous commit gracefully
           if git rev-parse HEAD~1 >/dev/null 2>&1; then
             echo "Fetching modified files between HEAD and previous commit..."
-            # Get the list of modified files between the last two commits
             git diff --name-only HEAD~1 HEAD > modified_files.txt
           else
             echo "No previous commit. Fetching all committed files in the current commit..."
-            # If no previous commit, get all committed files in the current commit
             git ls-tree --name-only --full-tree HEAD > modified_files.txt
           fi
           
@@ -45,7 +43,7 @@ jobs:
           cat modified_files.txt
 
           # Filter only SQL files, and ensure the script continues even if no SQL files are found
-          grep '\.sql$' modified_files.txt > sql_files.txt || true
+          grep -i '\.sql$' modified_files.txt > sql_files.txt || true  # Case-insensitive search
 
           # Debug: Show filtered SQL files
           if [ -s sql_files.txt ]; then
@@ -59,7 +57,11 @@ jobs:
         run: |
           # Print SQL files for debugging
           echo "SQL files to execute:"
-          cat sql_files.txt || echo "No SQL files found."
+          if [ -f sql_files.txt ]; then
+            cat sql_files.txt || echo "sql_files.txt is empty."
+          else
+            echo "sql_files.txt does not exist."
+          fi
 
       - name: Run SnowSQL Command
         env:
