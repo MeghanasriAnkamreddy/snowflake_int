@@ -15,7 +15,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          fetch-depth: 2  # Fetch at least 2 commits to avoid shallow clone issues
+          # Ensure the full commit history is fetched
+          fetch-depth: 0  # Fetch all history, so git diff can work correctly
 
       - name: Install SnowSQL
         run: |
@@ -31,9 +32,11 @@ jobs:
         run: |
           # Ensure we handle cases with no previous commit gracefully
           if git rev-parse HEAD~1 >/dev/null 2>&1; then
+            echo "Fetching modified files between HEAD and previous commit..."
             # Get the list of modified files between the last two commits
             git diff --name-only HEAD~1 HEAD > modified_files.txt
           else
+            echo "No previous commit. Fetching all committed files in the current commit..."
             # If no previous commit, get all committed files in the current commit
             git ls-tree --name-only --full-tree HEAD > modified_files.txt
           fi
@@ -49,22 +52,3 @@ jobs:
             echo "No SQL files modified."
           fi
 
-      - name: Run SnowSQL for each modified SQL file
-        if: steps.modified_files.outputs.modified_files != ''
-        env:
-          SNOWSQL_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-          SNOWSQL_USER: ${{ secrets.SNOWFLAKE_USER }}
-          SNOWSQL_PWD: ${{ secrets.SNOWFLAKE_PASSWORD }}
-          SNOWSQL_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
-          SNOWSQL_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
-        run: |
-          ~/bin/snowsql -q "ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH;"
-          
-          # If any SQL files are found, execute them with SnowSQL
-          for file in $(cat sql_files.txt); do
-            echo "Running $file"
-            ~/bin/snowsql -q "
-              USE DATABASE CI_CD_DEMO;
-              USE SCHEMA DEMO_SCHEMA;
-              EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$file;"
-          done
