@@ -37,8 +37,7 @@ jobs:
           # Define function to simulate try-catch behavior
           function try_catch() {
             "$@"
-            status=$?
-            return $status
+            return $?
           }
 
           # Get the latest SQL script file names dynamically
@@ -47,24 +46,33 @@ jobs:
           # Loop through each SQL file and execute
           for latest_file in $sql_files; do
             echo "Trying to execute SQL script: $latest_file..."
-            # Capture the error output in a variable
+            
+            # Execute the SQL script and capture the error output
             error_output=$(~/bin/snowsql -q "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$latest_file" 2>&1)
             status=$?
 
+            # Output the status of the command
+            echo "Execution status for $latest_file: $status"
+
+            # Check the exit status of the command
             if [ $status -eq 0 ]; then
               echo "$latest_file executed successfully."
             else
               echo "Failed to execute $latest_file. Error: $error_output"
               echo "Moving to fallback (previous version)..."
 
-              # Catch block: run the previous version of the SQL script
+              # Construct the path for the previous version
               previous_file="branches/main/$(git rev-parse HEAD~1):$latest_file"
               echo "Attempting to run previous version: $previous_file"
 
-              # Capture the error output for the previous version
+              # Execute the previous version and capture the error output
               error_output_fallback=$(~/bin/snowsql -q "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/${previous_file};" 2>&1)
               status_fallback=$?
 
+              # Output the status of the fallback command
+              echo "Execution status for previous version of $latest_file: $status_fallback"
+
+              # Check the exit status for the previous version
               if [ $status_fallback -eq 0 ]; then
                 echo "Previous version of $latest_file executed successfully."
               else
@@ -72,4 +80,3 @@ jobs:
                 exit 1  # Exit with failure if both attempts fail
               fi
             fi
-          done
