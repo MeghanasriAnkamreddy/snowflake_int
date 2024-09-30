@@ -34,12 +34,6 @@ jobs:
         run: |
           ~/bin/snowsql -q "ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH;"
 
-          # Define function to simulate try-catch behavior
-          function try_catch() {
-            "$@"
-            return $?
-          }
-
           # Get the latest SQL script file names dynamically
           sql_files=$(git ls-tree -r HEAD --name-only | grep '\.SQL$')
 
@@ -53,6 +47,7 @@ jobs:
 
             # Output the status of the command
             echo "Execution status for $latest_file: $status"
+            echo "Error Output: $error_output"
 
             # Check the exit status of the command
             if [ $status -eq 0 ]; then
@@ -71,6 +66,7 @@ jobs:
 
               # Output the status of the fallback command
               echo "Execution status for previous version of $latest_file: $status_fallback"
+              echo "Fallback Error Output: $error_output_fallback"
 
               # Check the exit status for the previous version
               if [ $status_fallback -eq 0 ]; then
