@@ -55,14 +55,13 @@ jobs:
             echo "No SQL files modified."
           fi
 
-      - name: Debug SQL files and SnowSQL Command
+      - name: Debug SQL files
         run: |
           # Print SQL files for debugging
           echo "SQL files to execute:"
-          cat sql_files.txt
+          cat sql_files.txt || echo "No SQL files found."
 
       - name: Run SnowSQL Command
-        if: steps.modified_files.outputs.modified_files != ''
         env:
           SNOWSQL_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           SNOWSQL_USER: ${{ secrets.SNOWFLAKE_USER }}
@@ -71,15 +70,20 @@ jobs:
           SNOWSQL_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
         run: |
           set -e  # Exit on error
-          
+
           # Fetch latest from Snowflake repository
           ~/bin/snowsql -q "ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH;"
-          
-          # Loop through the SQL files and execute
-          while IFS= read -r file; do
-            echo "Running SQL file: $file"
-            ~/bin/snowsql -q "
-              USE DATABASE CI_CD_DEMO;
-              USE SCHEMA DEMO_SCHEMA;
-              EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$file;"
-          done < sql_files.txt
+
+          # Check if sql_files.txt is not empty before proceeding
+          if [ -s sql_files.txt ]; then
+            # Loop through the SQL files and execute
+            while IFS= read -r file; do
+              echo "Running SQL file: $file"
+              ~/bin/snowsql -q "
+                USE DATABASE CI_CD_DEMO;
+                USE SCHEMA DEMO_SCHEMA;
+                EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$file;"
+            done < sql_files.txt
+          else
+            echo "No SQL files to execute."
+          fi
