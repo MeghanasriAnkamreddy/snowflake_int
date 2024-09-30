@@ -46,7 +46,7 @@ jobs:
           # Loop through each SQL file and execute
           for latest_file in $sql_files; do
             echo "Trying to execute SQL script: $latest_file..."
-            
+
             # Execute the SQL script and capture the error output
             error_output=$(~/bin/snowsql -q "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$latest_file" 2>&1)
             status=$?
@@ -80,3 +80,4 @@ jobs:
                 exit 1  # Exit with failure if both attempts fail
               fi
             fi
+          done
