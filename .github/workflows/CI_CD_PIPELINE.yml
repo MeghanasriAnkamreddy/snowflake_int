@@ -33,7 +33,7 @@ jobs:
           SNOWSQL_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
         run: |
           ~/bin/snowsql -q "ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH;"
-          
+
           # Define function to simulate try-catch behavior
           function try_catch() {
             "$@"
@@ -44,11 +44,14 @@ jobs:
             return 0
           }
 
+          # Get the latest SQL script file name dynamically (assuming it's the only SQL file in the directory)
+          latest_file=$(git ls-tree -r HEAD --name-only | grep '\.SQL$' | head -n 1)
+
           # Try block: run the latest SQL script
-          echo "Trying to execute the latest SQL script..."
+          echo "Trying to execute the latest SQL script: $latest_file..."
           try_catch ~/bin/snowsql -q "USE DATABASE CI_CD_DEMO;
                                       USE SCHEMA DEMO_SCHEMA;
-                                      EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/SQL_SCRIPT.SQL"
+                                      EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$latest_file"
 
           if [ $? -eq 0 ]; then
             echo "Latest SQL script executed successfully."
@@ -56,7 +59,7 @@ jobs:
             echo "Failed to execute the latest SQL script. Moving to fallback (previous version)..."
 
             # Catch block: run the previous version of the SQL script
-            previous_file="branches/main/$(git rev-parse HEAD~1):SQL_SCRIPT.SQL"
+            previous_file="branches/main/$(git rev-parse HEAD~1):$latest_file"
             echo "Attempting to run previous version: $previous_file"
 
             try_catch ~/bin/snowsql -q "USE DATABASE CI_CD_DEMO;
