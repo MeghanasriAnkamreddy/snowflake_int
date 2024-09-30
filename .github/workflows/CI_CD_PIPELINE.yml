@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - "*"
-    tags:
-      - "v*"
   workflow_dispatch:
 
 jobs:
@@ -29,7 +27,6 @@ jobs:
       - name: Get the list of modified SQL scripts
         id: modified_files
         run: |
-          # Ensure we handle cases with no previous commit gracefully
           if git rev-parse HEAD~1 >/dev/null 2>&1; then
             echo "Fetching modified files between HEAD and previous commit..."
             git diff --name-only HEAD~1 HEAD > modified_files.txt
@@ -38,14 +35,11 @@ jobs:
             git ls-tree --name-only --full-tree HEAD > modified_files.txt
           fi
           
-          # Show all modified files
           echo "Modified files:"
           cat modified_files.txt
 
-          # Filter only SQL files, and ensure the script continues even if no SQL files are found
-          grep -i '\.sql$' modified_files.txt > sql_files.txt || true  # Case-insensitive search
+          grep -i '\.sql$' modified_files.txt > sql_files.txt || true
 
-          # Debug: Show filtered SQL files
           if [ -s sql_files.txt ]; then
             echo "Modified SQL files:"
             cat sql_files.txt
@@ -55,7 +49,6 @@ jobs:
 
       - name: Debug SQL files
         run: |
-          # Print SQL files for debugging
           echo "SQL files to execute:"
           if [ -f sql_files.txt ]; then
             cat sql_files.txt || echo "sql_files.txt is empty."
@@ -81,10 +74,31 @@ jobs:
             # Loop through the SQL files and execute
             while IFS= read -r file; do
               echo "Running SQL file: $file"
-              ~/bin/snowsql -q "
+
+              # Attempt to run the current SQL file
+              if ! ~/bin/snowsql -q "
                 USE DATABASE CI_CD_DEMO;
                 USE SCHEMA DEMO_SCHEMA;
-                EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$file;"
+                EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$file;"; then
+                echo "Failed to run $file. Attempting to run previous version of the script."
+
+                # Get the previous version of the SQL file
+                previous_file="branches/main/HEAD~1/$file"
+                
+                # Run the previous version of the SQL file
+                if ~/bin/snowsql -q "
+                  USE DATABASE CI_CD_DEMO;
+                  USE SCHEMA DEMO_SCHEMA;
+                  EXECUTE IMMEDIATE FROM @snowflake_extensions/${previous_file};"; then
+                  echo "Successfully ran previous version of $file."
+                else
+                  echo "Failed to run previous version of $file. Exiting."
+                  exit 1  # Exit with error status if previous version fails
+                fi
+
+                # Exit the loop since the current version failed
+                break
+              fi
             done < sql_files.txt
           else
             echo "No SQL files to execute."
