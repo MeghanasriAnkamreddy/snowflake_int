@@ -33,11 +33,13 @@ jobs:
         run: |
           ~/bin/snowsql --version
 
+      # Run a SnowSQL Command using environment variables for Snowflake connection details
       - name: Run SnowSQL Command
+        env:
+          SNOWSQL_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWSQL_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWSQL_PWD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWSQL_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
+          SNOWSQL_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
         run: |
-          ~/bin/snowsql -q "SELECT CURRENT_VERSION();" \
-          --account ${{ secrets.SNOWFLAKE_ACCOUNT }} \
-          --user ${{ secrets.SNOWFLAKE_USER }} \
-          --password ${{ secrets.SNOWFLAKE_PASSWORD }} \
-          --role ${{ secrets.SNOWFLAKE_ROLE }} \
-          --warehouse ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+          ~/bin/snowsql -q "SELECT CURRENT_VERSION();"
