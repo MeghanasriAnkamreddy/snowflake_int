@@ -29,7 +29,7 @@ jobs:
       - name: Get the list of modified SQL scripts
         id: modified_files
         run: |
-          # Fetch all commit history and check if there are previous commits
+          # Ensure we handle cases with no previous commit gracefully
           if git rev-parse HEAD~1 >/dev/null 2>&1; then
             # Get the list of modified files between the last two commits
             git diff --name-only HEAD~1 HEAD > modified_files.txt
@@ -37,23 +37,14 @@ jobs:
             # If no previous commit, get all committed files in the current commit
             git ls-tree --name-only --full-tree HEAD > modified_files.txt
           fi
-          # Filter only SQL files
-          grep '\.sql$' modified_files.txt > sql_files.txt
-          cat sql_files.txt
-
-      - name: Run SnowSQL for each modified SQL file
-        env:
-          SNOWSQL_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-          SNOWSQL_USER: ${{ secrets.SNOWFLAKE_USER }}
-          SNOWSQL_PWD: ${{ secrets.SNOWFLAKE_PASSWORD }}
-          SNOWSQL_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
-          SNOWSQL_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
-        run: |
-          # Loop through each modified SQL file and execute it
-          for file in $(cat sql_files.txt); do
-            echo "Running $file"
-            ~/bin/snowsql -q "
-              USE DATABASE CI_CD_DEMO;
-              USE SCHEMA DEMO_SCHEMA;
-              EXECUTE IMMEDIATE FROM @$file;"
-          done
+          
+          # Filter only SQL files, and ensure the script continues if no SQL files are found
+          grep '\.sql$' modified_files.txt > sql_files.txt || true
+          
+          # Show the modified SQL files (if any)
+          if [ -s sql_files.txt ]; then
+            echo "Modified SQL files:"
+            cat sql_files.txt
+          else
+            echo "No SQL files modified."
+          fi
