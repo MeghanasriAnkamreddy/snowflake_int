@@ -28,3 +28,16 @@ jobs:
         run: |
           curl -O https://sfc-repo.snowflakecomputing.com/snowsql/bootstrap/1.2/linux_x86_64/snowsql-1.2.9-linux_x86_64.bash
           SNOWSQL_DEST=~/bin SNOWSQL_LOGIN_SHELL=~/.profile bash snowsql-1.2.9-linux_x86_64.bash
+
+      - name: Check SnowSQL Version
+        run: |
+          ~/bin/snowsql --version
+
+      - name: Run SnowSQL Command
+        run: |
+          ~/bin/snowsql -q "SELECT CURRENT_VERSION();" \
+          --account ${{ secrets.SNOWFLAKE_ACCOUNT }} \
+          --user ${{ secrets.SNOWFLAKE_USER }} \
+          --password ${{ secrets.SNOWFLAKE_PASSWORD }} \
+          --role ${{ secrets.SNOWFLAKE_ROLE }} \
+          --warehouse ${{ secrets.SNOWFLAKE_WAREHOUSE }}
