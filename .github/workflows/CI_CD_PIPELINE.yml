@@ -83,9 +83,9 @@ jobs:
                 echo "Failed to run $file. Attempting to run previous version of the script."
 
                 # Get the previous version of the SQL file
-                previous_file="branches/main/HEAD~1/$file"
-                
-                # Run the previous version of the SQL file
+                previous_file="branches/main/$(git rev-parse HEAD~1):$file"
+
+                # Attempt to run the previous version of the SQL file
                 if ~/bin/snowsql -q "
                   USE DATABASE CI_CD_DEMO;
                   USE SCHEMA DEMO_SCHEMA;
