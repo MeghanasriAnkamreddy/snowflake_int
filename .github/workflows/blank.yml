@@ -15,7 +15,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          # Ensure we fetch all commit history and work in the correct branch
           fetch-depth: 0  # Fetch full commit history
 
       - name: Install SnowSQL
@@ -41,13 +40,13 @@ jobs:
             git ls-tree --name-only --full-tree HEAD > modified_files.txt
           fi
           
-          # Debug: Show all modified files, regardless of type
+          # Show all modified files
           echo "Modified files:"
           cat modified_files.txt
 
           # Filter only SQL files, and ensure the script continues even if no SQL files are found
           grep '\.sql$' modified_files.txt > sql_files.txt || true
-          
+
           # Debug: Show filtered SQL files
           if [ -s sql_files.txt ]; then
             echo "Modified SQL files:"
@@ -63,6 +62,7 @@ jobs:
           cat sql_files.txt
 
       - name: Run SnowSQL Command
+        if: steps.modified_files.outputs.modified_files != ''
         env:
           SNOWSQL_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           SNOWSQL_USER: ${{ secrets.SNOWFLAKE_USER }}
@@ -71,8 +71,11 @@ jobs:
           SNOWSQL_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
         run: |
           set -e  # Exit on error
+          
+          # Fetch latest from Snowflake repository
           ~/bin/snowsql -q "ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH;"
           
+          # Loop through the SQL files and execute
           while IFS= read -r file; do
             echo "Running SQL file: $file"
             ~/bin/snowsql -q "
@@ -80,4 +83,3 @@ jobs:
               USE SCHEMA DEMO_SCHEMA;
               EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$file;"
           done < sql_files.txt
-          
