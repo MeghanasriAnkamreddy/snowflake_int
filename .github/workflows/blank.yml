@@ -14,6 +14,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 2  # Fetch at least 2 commits to avoid shallow clone issues
 
       - name: Install SnowSQL
         run: |
@@ -27,8 +29,14 @@ jobs:
       - name: Get the list of modified SQL scripts
         id: modified_files
         run: |
-          # Get the list of modified files in the latest commit
-          git diff --name-only HEAD~1 HEAD > modified_files.txt
+          # Fetch all commit history and check if there are previous commits
+          if git rev-parse HEAD~1 >/dev/null 2>&1; then
+            # Get the list of modified files between the last two commits
+            git diff --name-only HEAD~1 HEAD > modified_files.txt
+          else
+            # If no previous commit, get all committed files in the current commit
+            git ls-tree --name-only --full-tree HEAD > modified_files.txt
+          fi
           # Filter only SQL files
           grep '\.sql$' modified_files.txt > sql_files.txt
           cat sql_files.txt
