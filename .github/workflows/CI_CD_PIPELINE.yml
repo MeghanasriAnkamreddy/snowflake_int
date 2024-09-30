@@ -47,11 +47,7 @@ jobs:
           # Loop through each SQL file and execute
           for latest_file in $sql_files; do
             echo "Trying to execute SQL script: $latest_file..."
-            try_catch ~/bin/snowsql -q "USE DATABASE CI_CD_DEMO;
-                                        USE SCHEMA DEMO_SCHEMA;
-                                        EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$latest_file"
-
-            if [ $? -eq 0 ]; then
+            if try_catch ~/bin/snowsql -q "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$latest_file"; then
               echo "$latest_file executed successfully."
             else
               echo "Failed to execute $latest_file. Moving to fallback (previous version)..."
@@ -60,11 +56,7 @@ jobs:
               previous_file="branches/main/$(git rev-parse HEAD~1):$latest_file"
               echo "Attempting to run previous version: $previous_file"
 
-              try_catch ~/bin/snowsql -q "USE DATABASE CI_CD_DEMO;
-                                          USE SCHEMA DEMO_SCHEMA;
-                                          EXECUTE IMMEDIATE FROM @snowflake_extensions/${previous_file};"
-
-              if [ $? -eq 0 ]; then
+              if try_catch ~/bin/snowsql -q "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/${previous_file};"; then
                 echo "Previous version of $latest_file executed successfully."
               else
                 echo "Failed to execute both the latest and previous versions of $latest_file."
