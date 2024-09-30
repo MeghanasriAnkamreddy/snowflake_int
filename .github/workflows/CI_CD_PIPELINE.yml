@@ -1,19 +1,28 @@
+# Very basic GitHub Action workflow, goes in ~/.github/workflows/deploy.yaml
+
 name: CI
 
+# Controls when the workflow will run
 on:
+  # Triggers the workflow on any branch or tag commit
   push:
     branches:
       - "*"
+    tags:
+      - "v*"
+
+  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
 jobs:
+  # This workflow contains a single job called "deploy"
   deploy:
     runs-on: ubuntu-latest
 
+    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0  # Fetch full commit history
 
       - name: Install SnowSQL
         run: |
@@ -24,38 +33,7 @@ jobs:
         run: |
           ~/bin/snowsql --version
 
-      - name: Get the list of modified SQL scripts
-        id: modified_files
-        run: |
-          if git rev-parse HEAD~1 >/dev/null 2>&1; then
-            echo "Fetching modified files between HEAD and previous commit..."
-            git diff --name-only HEAD~1 HEAD > modified_files.txt
-          else
-            echo "No previous commit. Fetching all committed files in the current commit..."
-            git ls-tree --name-only --full-tree HEAD > modified_files.txt
-          fi
-          
-          echo "Modified files:"
-          cat modified_files.txt
-
-          grep -i '\.sql$' modified_files.txt > sql_files.txt || true
-
-          if [ -s sql_files.txt ]; then
-            echo "Modified SQL files:"
-            cat sql_files.txt
-          else
-            echo "No SQL files modified."
-          fi
-
-      - name: Debug SQL files
-        run: |
-          echo "SQL files to execute:"
-          if [ -f sql_files.txt ]; then
-            cat sql_files.txt || echo "sql_files.txt is empty."
-          else
-            echo "sql_files.txt does not exist."
-          fi
-
+      # Run a SnowSQL Command using environment variables for Snowflake connection details
       - name: Run SnowSQL Command
         env:
           SNOWSQL_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
@@ -64,57 +42,8 @@ jobs:
           SNOWSQL_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
           SNOWSQL_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
         run: |
-          # Fetch latest from Snowflake repository
+          ~/bin/snowsql -q "SELECT CURRENT_VERSION();"
           ~/bin/snowsql -q "ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH;"
-
-          if [ -s sql_files.txt ]; then
-            # Initialize variable to track failures
-            FAILED=0
-
-            # Loop through the SQL files and execute
-            while IFS= read -r file; do
-              echo "Running SQL file: $file"
-
-              # Attempt to run the current SQL file
-              ~/bin/snowsql -q "
-                USE DATABASE CI_CD_DEMO;
-                USE SCHEMA DEMO_SCHEMA;
-                BEGIN TRY;
-                EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$file;
-                COMMIT;
-                END TRY;
-                BEGIN CATCH;
-                ROLLBACK;
-                END CATCH;" || {
-                echo "Failed to run $file. Attempting to run previous version of the script."
-
-                # Get the previous version of the SQL file
-                previous_file="branches/main/$(git rev-parse HEAD~1):$file"
-
-                # Attempt to run the previous version of the SQL file
-                ~/bin/snowsql -q "
-                  USE DATABASE CI_CD_DEMO;
-                  USE SCHEMA DEMO_SCHEMA;
-                  BEGIN TRY;
-                  EXECUTE IMMEDIATE FROM @snowflake_extensions/${previous_file};
-                  COMMIT;
-                  END TRY;
-                  BEGIN CATCH;
-                  ROLLBACK;
-                  END CATCH;" || {
-                  echo "Failed to run previous version of $file."
-                  FAILED=1  # Mark as failed if both versions fail
-                }
-              }
-
-            done < sql_files.txt
-
-            # Check if there was a failure
-            if [ $FAILED -eq 1 ]; then
-              echo "One or more SQL files failed."
-              exit 1  # Exit with failure if any SQL file failed
-            fi
-          else
-            echo "No SQL files to execute."
-          fi
-
+          ~/bin/snowsql -q "USE DATABASE CI_CD_DEMO;
+                            USE SCHEMA DEMO_SCHEMA;
+                            EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/SQL_SCRIPT.SQL;"
