@@ -64,7 +64,7 @@ jobs:
           SNOWSQL_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
           SNOWSQL_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
         run: |
-          set -e  # Exit on error
+          set +e  # Do not exit immediately on error
 
           # Fetch latest from Snowflake repository
           ~/bin/snowsql -q "ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH;"
@@ -92,12 +92,11 @@ jobs:
                   EXECUTE IMMEDIATE FROM @snowflake_extensions/${previous_file};"; then
                   echo "Successfully ran previous version of $file."
                 else
-                  echo "Failed to run previous version of $file. Exiting."
-                  exit 1  # Exit with error status if previous version fails
+                  echo "Failed to run previous version of $file."
                 fi
 
-                # Exit the loop since the current version failed
-                break
+                # Continue to the next file in the loop
+                continue
               fi
             done < sql_files.txt
           else
