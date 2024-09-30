@@ -1,27 +1,18 @@
-# Very basic GitHub Action workflow, goes in ~/.github/workflows/deploy.yaml
-
 name: CI
 
-# Controls when the workflow will run
 on:
-  # Triggers the workflow on any branch or tag commit
   push:
     branches:
       - "*"
     tags:
       - "v*"
-
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
 jobs:
-  # This workflow contains a single job called "deploy"
   deploy:
     runs-on: ubuntu-latest
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
 
       - name: Install SnowSQL
@@ -33,8 +24,16 @@ jobs:
         run: |
           ~/bin/snowsql --version
 
-      # Run a SnowSQL Command using environment variables for Snowflake connection details
-      - name: Run SnowSQL Command
+      - name: Get the list of modified SQL scripts
+        id: modified_files
+        run: |
+          # Get the list of modified files in the latest commit
+          git diff --name-only HEAD~1 HEAD > modified_files.txt
+          # Filter only SQL files
+          grep '\.sql$' modified_files.txt > sql_files.txt
+          cat sql_files.txt
+
+      - name: Run SnowSQL for each modified SQL file
         env:
           SNOWSQL_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           SNOWSQL_USER: ${{ secrets.SNOWFLAKE_USER }}
@@ -42,8 +41,11 @@ jobs:
           SNOWSQL_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
           SNOWSQL_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
         run: |
-          ~/bin/snowsql -q "SELECT CURRENT_VERSION();"
-          ~/bin/snowsql -q "ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH;"
-          ~/bin/snowsql -q "USE DATABASE CI_CD_DEMO;
-                            USE SCHEMA DEMO_SCHEMA;
-                            EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/SQL_SCRIPT.SQL;"
+          # Loop through each modified SQL file and execute it
+          for file in $(cat sql_files.txt); do
+            echo "Running $file"
+            ~/bin/snowsql -q "
+              USE DATABASE CI_CD_DEMO;
+              USE SCHEMA DEMO_SCHEMA;
+              EXECUTE IMMEDIATE FROM @$file;"
+          done
