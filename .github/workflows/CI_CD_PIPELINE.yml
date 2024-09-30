@@ -86,14 +86,14 @@ jobs:
                 previous_file="branches/main/$(git rev-parse HEAD~1):$file"
 
                 # Attempt to run the previous version of the SQL file
-                if ! ~/bin/snowsql -q "
+                if ~/bin/snowsql -q "
                   USE DATABASE CI_CD_DEMO;
                   USE SCHEMA DEMO_SCHEMA;
                   EXECUTE IMMEDIATE FROM @snowflake_extensions/${previous_file};"; then
+                  echo "Successfully ran previous version of $file."
+                else
                   echo "Failed to run previous version of $file. Exiting."
                   exit 1  # Exit with error status if previous version fails
-                else
-                  echo "Successfully ran previous version of $file."
                 fi
 
                 # Exit the loop since the current version failed
