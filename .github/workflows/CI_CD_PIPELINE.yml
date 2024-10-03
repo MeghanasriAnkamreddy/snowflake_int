@@ -24,8 +24,7 @@ jobs:
           SNOWSQL_DEST=~/bin SNOWSQL_LOGIN_SHELL=~/.profile bash snowsql-1.2.9-linux_x86_64.bash
 
       - name: Check SnowSQL Version
-        run: |
-          ~/bin/snowsql --version
+        run: ~/bin/snowsql --version
 
       - name: Execute SQL with Try-Catch Logic
         env:
@@ -62,17 +61,13 @@ jobs:
               echo "Moving to fallback (previous version)..."
 
               # Checkout the previous commit
-              git checkout HEAD~1  # Switch to the previous commit
-
-              # Log the files in the previous commit to ensure the SQL script is available
-              echo "Checking files in previous commit:"
-              git ls-tree -r HEAD --name-only | grep '\.SQL$'
+              git checkout HEAD~1 --force  # Switch to the previous commit
 
               # Check if the file exists in the previous commit before executing
               if git ls-tree -r HEAD --name-only | grep -q "$latest_file"; then
                 echo "Found $latest_file in previous commit. Executing fallback..."
 
-                # Execute the previous version
+                # Re-execute the previous version of the script
                 output_fallback=$(~/bin/snowsql -q "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$latest_file;" 2>&1)
                 status_fallback=$?
 
@@ -92,7 +87,7 @@ jobs:
               fi
 
               # Switch back to the main branch after fallback
-              git checkout -
+              git checkout - --force
             else
               echo "$latest_file executed successfully."
             fi
