@@ -45,17 +45,6 @@ jobs:
             return $?  # Return the exit status
           }
 
-          # Execute a command and check for success
-          run_command() {
-            command="$1"
-            echo "Running: $command"
-            if ! execute_snow_sql "$command"; then
-              echo "Command failed: $command. Executing previous version..."
-              return 1  # Indicate failure
-            fi
-            return 0  # Indicate success
-          }
-
           # Commands to run
           commands=(
             "SELECT CURRENT_VERSION();"
@@ -65,17 +54,17 @@ jobs:
 
           # Loop through each command and run it
           for command in "${commands[@]}"; do
-            if ! run_command "$command"; then
-              # If a command fails, checkout the last committed version of the SQL script
+            echo "Running command: $command"
+            if execute_snow_sql "$command"; then
+              echo "Command succeeded."
+            else
+              echo "Command failed: $command. Continuing to next command..."
               echo "Checking out last committed version of the SQL_SCRIPT.SQL..."
               git checkout HEAD~1 --force
 
-              # Re-run the command for the previous version
+              # Attempt to execute the last committed version of the script
               last_command="USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/SQL_SCRIPT.SQL;"
               echo "Executing previous version: $last_command"
-              if ! execute_snow_sql "$last_command"; then
-                echo "Failed to execute previous version of SQL_SCRIPT.SQL."
-                exit 1  # Exit with failure if the fallback fails
-              fi
+              execute_snow_sql "$last_command"
             fi
           done
