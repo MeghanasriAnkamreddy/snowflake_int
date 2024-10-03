@@ -31,16 +31,17 @@ jobs:
         run: |
           ~/bin/snowsql --version
 
-      # List all files in the repository
-      - name: List All Files
-        id: list_files
+      # Get list of modified SQL files from the last commit
+      - name: Get Modified SQL Files
+        id: get_modified_files
         run: |
-          echo "Listing all files in the repository:"
-          git ls-files > files_list.txt
-          cat files_list.txt
+          echo "Getting modified SQL files..."
+          git fetch origin main  # Fetch latest from remote
+          git diff --name-only HEAD^ HEAD | grep '\.sql$' > modified_files.txt
+          cat modified_files.txt || echo "No modified SQL files found."
 
-      # Filter for .sql files and execute them
-      - name: Execute SQL Files
+      # Run SnowSQL commands for each modified SQL file
+      - name: Execute Modified SQL Files
         env:
           SNOWSQL_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           SNOWSQL_USER: ${{ secrets.SNOWFLAKE_USER }}
@@ -51,13 +52,10 @@ jobs:
           ~/bin/snowsql -q "SELECT CURRENT_VERSION();"
           ~/bin/snowsql -q "ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH;"
 
-          echo "Executing SQL files..."
-          # Read the list of files and filter for .sql files
+          echo "Executing modified SQL files..."
           while IFS= read -r sql_file; do
-            if [[ "$sql_file" == *.SQL ]]; then
-              echo "Executing $sql_file..."
-              ~/bin/snowsql -q "USE DATABASE CI_CD_DEMO;
-                                USE SCHEMA DEMO_SCHEMA;
-                                EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$sql_file;"
-            fi
-          done < files_list.txt
+            echo "Executing $sql_file..."
+            ~/bin/snowsql -q "USE DATABASE CI_CD_DEMO;
+                              USE SCHEMA DEMO_SCHEMA;
+                              EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$sql_file;"
+          done < modified_files.txt || echo "No SQL files to execute."
