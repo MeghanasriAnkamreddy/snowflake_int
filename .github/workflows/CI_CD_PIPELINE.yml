@@ -43,6 +43,7 @@ jobs:
           # Define a function to execute the SnowSQL command
           execute_snow_sql() {
             output=$(/bin/bash -c "~/bin/snowsql -q \"$1\" 2>&1")  # Capture output and error
+            echo "$output"  # Log the output for debugging
             return $?  # Return the exit status of the SnowSQL command
           }
 
@@ -74,8 +75,7 @@ jobs:
 
               # Read the last committed version of the SQL command
               last_sql_command=$(<"$sql_file")
-              execute_snow_sql "$last_sql_command"
-              if [ $? -eq 0 ]; then
+              if execute_snow_sql "$last_sql_command"; then
                 echo "Previous version of $sql_file executed successfully."
               else
                 echo "Failed to execute previous version of $sql_file. Error: $output"
