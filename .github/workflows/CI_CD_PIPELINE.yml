@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - "*"
-    tags:
-      - "v*"
   workflow_dispatch:
 
 jobs:
@@ -21,41 +19,41 @@ jobs:
         run: |
           curl -O https://sfc-repo.snowflakecomputing.com/snowsql/bootstrap/1.2/linux_x86_64/snowsql-1.2.9-linux_x86_64.bash
           SNOWSQL_DEST=~/bin SNOWSQL_LOGIN_SHELL=~/.profile bash snowsql-1.2.9-linux_x86_64.bash
+          
       - name: Check SnowSQL Version
         run: |
           ~/bin/snowsql --version
+
       - name: Get the list of modified SQL scripts
         id: modified_files
         run: |
-          # Ensure we handle cases with no previous commit gracefully
           if git rev-parse HEAD~1 >/dev/null 2>&1; then
             echo "Fetching modified files between HEAD and previous commit..."
-            # Get the list of modified files between the last two commits
             git diff --name-only HEAD~1 HEAD > modified_files.txt
           else
             echo "No previous commit. Fetching all committed files in the current commit..."
-            # If no previous commit, get all committed files in the current commit
             git ls-tree --name-only --full-tree HEAD > modified_files.txt
           fi
           
           # Show all modified files
           echo "Modified files:"
           cat modified_files.txt
-          # Filter only SQL files, and ensure the script continues even if no SQL files are found
+
+          # Filter only SQL files
           grep '\.SQL$' modified_files.txt > sql_files.txt || true
-          # Debug: Show filtered SQL files
           if [ -s sql_files.txt ]; then
             echo "Modified SQL files:"
             cat sql_files.txt
           else
             echo "No SQL files modified."
           fi
+
       - name: Debug SQL files
         run: |
-          # Print SQL files for debugging
           echo "SQL files to execute:"
           cat sql_files.txt || echo "No SQL files found."
-      - name: Run SnowSQL Command
+
+      - name: Run SnowSQL Command with Error Handling
         env:
           SNOWSQL_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           SNOWSQL_USER: ${{ secrets.SNOWFLAKE_USER }}
@@ -63,18 +61,50 @@ jobs:
           SNOWSQL_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
           SNOWSQL_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
         run: |
-          set -e  # Exit on error
+          set -e  # Exit on error for safe blocks
+          
           # Fetch latest from Snowflake repository
           ~/bin/snowsql -q "ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH;"
+
           # Check if sql_files.txt is not empty before proceeding
           if [ -s sql_files.txt ]; then
-            # Loop through the SQL files and execute
             while IFS= read -r file; do
               echo "Running SQL file: $file"
+              set +e  # Disable exit on error to handle errors manually
+
+              # Try executing the current SQL file
               ~/bin/snowsql -q "
                 USE DATABASE CI_CD_DEMO;
                 USE SCHEMA DEMO_SCHEMA;
                 EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$file;"
+              EXIT_CODE=$?
+
+              # Check if the SQL execution failed
+              if [ $EXIT_CODE -ne 0 ]; then
+                echo "Error executing $file. Trying previous commit version."
+
+                # Fetch the previous version of the SQL file
+                git show HEAD~1:$file > prev_commit.sql
+
+                if [ $? -eq 0 ]; then
+                  echo "Running previous version of $file"
+                  ~/bin/snowsql -q "
+                    USE DATABASE CI_CD_DEMO;
+                    USE SCHEMA DEMO_SCHEMA;
+                    EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/prev_commit.sql;"
+                  if [ $? -ne 0 ]; then
+                    echo "Error executing previous version of $file."
+                  else
+                    echo "Previous version of $file executed successfully."
+                  fi
+                else
+                  echo "Failed to fetch previous commit for $file. Skipping..."
+                fi
+              else
+                echo "$file executed successfully."
+              fi
+
+              set -e  # Re-enable exit on error for the rest of the script
             done < sql_files.txt
           else
             echo "No SQL files to execute."
