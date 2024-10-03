@@ -41,11 +41,15 @@ jobs:
           SNOWSQL_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
         run: |
           # Fetch the latest changes from the remote repository
-          echo "Fetching the latest SQL scripts..."
+          echo "Fetching the latest changes..."
           git fetch origin
 
-          # Get the list of the most recent SQL script files (e.g., *.sql) in the last commit
-          sql_files=$(git diff --name-only HEAD^ HEAD -- '*.sql')
+          # Get the list of files changed in the latest commit
+          echo "Fetching all files from the latest commit..."
+          sql_files=$(git diff --name-only HEAD~1 HEAD)
+
+          # Filter for SQL files
+          sql_files=$(echo "$sql_files" | grep '\.sql$')
 
           # Check if there are any SQL files to execute
           if [ -z "$sql_files" ]; then
