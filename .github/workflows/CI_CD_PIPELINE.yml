@@ -46,47 +46,26 @@ jobs:
             return $?  # Return the exit status of the SnowSQL command
           }
 
-          # Command to run
-          command="SELECT CURRENT_VERSION();"
-          
-          # Try to execute the command
-          execute_snow_sql "$command" || {
-            # If the command fails, execute the fallback
-            echo "Initial command failed, executing the last committed version..."
+          # Commands to run
+          commands=(
+            "SELECT CURRENT_VERSION();"
+            "ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH;"
+            "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/SQL_SCRIPT.SQL;"
+          )
 
-            # Checkout the last committed version of the SQL script
-            git checkout HEAD~1 --force
+          for command in "${commands[@]}"; do
+            echo "Running command: $command"
 
-            # Execute the last committed version of the script
-            execute_snow_sql "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/SQL_SCRIPT.SQL;"
-          }
+            # Try to execute the command
+            if execute_snow_sql "$command"; then
+              echo "Command succeeded."
+            else
+              echo "Command failed: $command. Executing last committed version..."
 
-          # Next command to run
-          command="ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH;"
-          
-          # Try to execute the command
-          execute_snow_sql "$command" || {
-            # If the command fails, execute the fallback
-            echo "ALTER command failed, executing the last committed version..."
+              # Checkout the last committed version of the SQL script
+              git checkout HEAD~1 --force
 
-            # Checkout the last committed version of the SQL script
-            git checkout HEAD~1 --force
-
-            # Execute the last committed version of the script
-            execute_snow_sql "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/SQL_SCRIPT.SQL;"
-          }
-
-          # Final command to run
-          command="USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/SQL_SCRIPT.SQL;"
-          
-          # Try to execute the command
-          execute_snow_sql "$command" || {
-            # If the command fails, execute the fallback
-            echo "Final command failed, executing the last committed version..."
-
-            # Checkout the last committed version of the SQL script
-            git checkout HEAD~1 --force
-
-            # Execute the last committed version of the script
-            execute_snow_sql "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/SQL_SCRIPT.SQL;"
-          }
+              # Execute the last committed version of the script
+              execute_snow_sql "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/SQL_SCRIPT.SQL;"
+            fi
+          done
