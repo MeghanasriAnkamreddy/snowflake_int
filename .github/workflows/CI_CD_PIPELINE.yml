@@ -13,7 +13,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Fetch full git history to access previous commits
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Ensure full history is available
 
       - name: Install SnowSQL
         run: |
