@@ -40,21 +40,26 @@ jobs:
           SNOWSQL_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
           SNOWSQL_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
         run: |
-          # Fetch the latest committed SQL script files from the repository
-          echo "Fetching the latest SQL scripts..."
-          git fetch origin
-          
-          # Get the list of the most recent SQL script files (e.g., *.sql)
-          sql_files=$(git diff --name-only HEAD~1 HEAD -- '*.sql')
+          # Check if there are previous commits
+          if git rev-parse --quiet --verify HEAD~1; then
+            # Fetch the latest SQL scripts if there are previous commits
+            echo "Fetching the latest SQL scripts..."
+            git fetch origin
+            
+            # Get the list of the most recent SQL script files (e.g., *.sql)
+            sql_files=$(git diff --name-only HEAD~1 HEAD -- '*.sql')
 
-          # Check if there are any SQL files to execute
-          if [ -z "$sql_files" ]; then
-            echo "No new SQL scripts found to execute."
+            # Check if there are any SQL files to execute
+            if [ -z "$sql_files" ]; then
+              echo "No new SQL scripts found to execute."
+            else
+              # Loop through each SQL file and execute it
+              for sql_file in $sql_files; do
+                echo "Executing SQL script: $sql_file"
+                output=$(~/bin/snowsql -q "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @$sql_file;")
+                echo "$output"
+              done
+            fi
           else
-            # Loop through each SQL file and execute it
-            for sql_file in $sql_files; do
-              echo "Executing SQL script: $sql_file"
-              output=$(~/bin/snowsql -q "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @$sql_file;")
-              echo "$output"
-            done
+            echo "No previous commits found. Skipping SQL script execution."
           fi
