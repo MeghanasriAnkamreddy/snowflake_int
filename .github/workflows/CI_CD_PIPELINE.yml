@@ -1,22 +1,26 @@
-name: CI with Fallback to Previous Version
+name: CI
 
+# Controls when the workflow will run
 on:
+  # Triggers the workflow on any branch or tag commit
   push:
     branches:
       - "*"
-    tags:
-      - "v*"
+      
+  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
 jobs:
+  # This workflow contains a single job called "deploy"
   deploy:
     runs-on: ubuntu-latest
 
+    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Fetch full git history to access previous commits
+      # Checks out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # Ensure full history is available
+          fetch-depth: 0  # Ensure full history is available to access previous commits
 
       - name: Install SnowSQL
         run: |
@@ -24,9 +28,11 @@ jobs:
           SNOWSQL_DEST=~/bin SNOWSQL_LOGIN_SHELL=~/.profile bash snowsql-1.2.9-linux_x86_64.bash
 
       - name: Check SnowSQL Version
-        run: ~/bin/snowsql --version
+        run: |
+          ~/bin/snowsql --version
 
-      - name: Execute SQL with Fallback Logic
+      # Run a SnowSQL Command using environment variables for Snowflake connection details
+      - name: Run SnowSQL Command
         env:
           SNOWSQL_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           SNOWSQL_USER: ${{ secrets.SNOWFLAKE_USER }}
@@ -34,59 +40,53 @@ jobs:
           SNOWSQL_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
           SNOWSQL_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
         run: |
-          # Fetch the latest SQL script file names dynamically
-          sql_files=$(git ls-tree -r HEAD --name-only | grep '\.SQL$')
+          # Define a function to execute the SnowSQL command
+          execute_snow_sql() {
+            ~/bin/snowsql -q "$1"
+            return $?  # Return the exit status of the SnowSQL command
+          }
 
-          # Log the SQL files identified
-          echo "SQL files found in the latest commit:"
-          echo "$sql_files"
+          # Command to run
+          command="SELECT CURRENT_VERSION();"
+          
+          # Try to execute the command
+          execute_snow_sql "$command" || {
+            # If the command fails, execute the fallback
+            echo "Initial command failed, executing the last committed version..."
 
-          # Loop through each SQL file and execute
-          for latest_file in $sql_files; do
-            echo "Trying to execute SQL script: $latest_file..."
+            # Checkout the last committed version of the SQL script
+            git checkout HEAD~1 --force
 
-            # Execute the SQL script and capture the output
-            output=$(~/bin/snowsql -q "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$latest_file" 2>&1)
-            status=$?
+            # Execute the last committed version of the script
+            execute_snow_sql "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/SQL_SCRIPT.SQL;"
+          }
 
-            # Output the status of the command
-            echo "Execution status for $latest_file: $status"
-            echo "Output: $output"
+          # Next command to run
+          command="ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH;"
+          
+          # Try to execute the command
+          execute_snow_sql "$command" || {
+            # If the command fails, execute the fallback
+            echo "ALTER command failed, executing the last committed version..."
 
-            # Check for errors in the output or the status
-            if [ $status -ne 0 ]; then
-              echo "Error detected for $latest_file: $output"
-              echo "Moving to fallback (previous version)..."
+            # Checkout the last committed version of the SQL script
+            git checkout HEAD~1 --force
 
-              # Checkout the previous commit
-              git checkout HEAD~1 --force  # Switch to the previous commit
+            # Execute the last committed version of the script
+            execute_snow_sql "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/SQL_SCRIPT.SQL;"
+          }
 
-              # Check if the file exists in the previous commit
-              if git ls-tree -r HEAD --name-only | grep -q "$latest_file"; then
-                echo "Found $latest_file in previous commit. Executing fallback..."
+          # Final command to run
+          command="USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/SQL_SCRIPT.SQL;"
+          
+          # Try to execute the command
+          execute_snow_sql "$command" || {
+            # If the command fails, execute the fallback
+            echo "Final command failed, executing the last committed version..."
 
-                # Re-execute the previous version of the script
-                output_fallback=$(~/bin/snowsql -q "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$latest_file;" 2>&1)
-                status_fallback=$?
+            # Checkout the last committed version of the SQL script
+            git checkout HEAD~1 --force
 
-                # Output the status of the fallback command
-                echo "Execution status for previous version of $latest_file: $status_fallback"
-                echo "Fallback Output: $output_fallback"
-
-                # Check if the fallback execution was successful
-                if [ $status_fallback -ne 0 ]; then
-                  echo "Failed to execute both the latest and previous versions of $latest_file. Error: $output_fallback"
-                  exit 1  # Exit with failure if both attempts fail
-                else
-                  echo "Previous version of $latest_file executed successfully."
-                fi
-              else
-                echo "$latest_file does not exist in the previous commit. Skipping fallback."
-              fi
-
-              # Switch back to the main branch after fallback
-              git checkout - --force
-            else
-              echo "$latest_file executed successfully."
-            fi
-          done
+            # Execute the last committed version of the script
+            execute_snow_sql "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/SQL_SCRIPT.SQL;"
+          }
