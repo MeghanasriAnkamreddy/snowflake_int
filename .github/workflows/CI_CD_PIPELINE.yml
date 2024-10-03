@@ -40,26 +40,22 @@ jobs:
           SNOWSQL_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
           SNOWSQL_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
         run: |
-          # Check if there are previous commits
-          if git rev-parse --quiet --verify HEAD~1; then
-            # Fetch the latest SQL scripts if there are previous commits
-            echo "Fetching the latest SQL scripts..."
-            git fetch origin
-            
-            # Get the list of the most recent SQL script files (e.g., *.sql)
-            sql_files=$(git diff --name-only HEAD~1 HEAD -- '*.sql')
+          # Fetch the latest changes from the remote repository
+          echo "Fetching the latest SQL scripts..."
+          git fetch origin
 
-            # Check if there are any SQL files to execute
-            if [ -z "$sql_files" ]; then
-              echo "No new SQL scripts found to execute."
-            else
-              # Loop through each SQL file and execute it
-              for sql_file in $sql_files; do
-                echo "Executing SQL script: $sql_file"
-                output=$(~/bin/snowsql -q "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @$sql_file;")
-                echo "$output"
-              done
-            fi
+          # Get the list of the most recent SQL script files (e.g., *.sql) in the last commit
+          sql_files=$(git diff --name-only HEAD^ HEAD -- '*.sql')
+
+          # Check if there are any SQL files to execute
+          if [ -z "$sql_files" ]; then
+            echo "No new SQL scripts found to execute."
           else
-            echo "No previous commits found. Skipping SQL script execution."
+            # Loop through each SQL file and execute it
+            for sql_file in $sql_files; do
+              echo "Executing SQL script: $sql_file"
+              # Execute the SQL script using SnowSQL
+              output=$(~/bin/snowsql -q "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @$sql_file;")
+              echo "$output"
+            done
           fi
