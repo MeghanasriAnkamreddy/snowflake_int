@@ -31,14 +31,15 @@ jobs:
         run: |
           ~/bin/snowsql --version
 
-      # Fetch the latest committed SQL files from the main branch
-      - name: Fetch Latest SQL Files
+      # List all files in the repository
+      - name: List All Files
+        id: list_files
         run: |
-          git fetch origin main
-          git checkout origin/main -- *.sql
-          ls -1 *.sql
+          echo "Listing all files in the repository:"
+          git ls-files > files_list.txt
+          cat files_list.txt
 
-      # Run SnowSQL commands for each SQL file
+      # Filter for .sql files and execute them
       - name: Execute SQL Files
         env:
           SNOWSQL_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
@@ -50,9 +51,13 @@ jobs:
           ~/bin/snowsql -q "SELECT CURRENT_VERSION();"
           ~/bin/snowsql -q "ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH;"
 
-          for sql_file in *.sql; do
-            echo "Executing $sql_file..."
-            ~/bin/snowsql -q "USE DATABASE CI_CD_DEMO;
-                              USE SCHEMA DEMO_SCHEMA;
-                              EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$sql_file;"
-          done
+          echo "Executing SQL files..."
+          # Read the list of files and filter for .sql files
+          while IFS= read -r sql_file; do
+            if [[ "$sql_file" == *.sql ]]; then
+              echo "Executing $sql_file..."
+              ~/bin/snowsql -q "USE DATABASE CI_CD_DEMO;
+                                USE SCHEMA DEMO_SCHEMA;
+                                EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$sql_file;"
+            fi
+          done < files_list.txt
