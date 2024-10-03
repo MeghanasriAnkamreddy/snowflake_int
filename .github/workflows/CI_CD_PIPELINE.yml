@@ -44,9 +44,14 @@ jobs:
           echo "Fetching the latest changes..."
           git fetch origin
 
-          # Get the list of files changed in the latest commit
-          echo "Fetching all files from the latest commit..."
-          sql_files=$(git diff --name-only HEAD~1 HEAD)
+          # Check if HEAD has a previous commit
+          if git rev-parse --quiet --verify HEAD~1; then
+            echo "Fetching all files from the latest commit..."
+            sql_files=$(git diff --name-only HEAD~1 HEAD)
+          else
+            echo "No previous commits found. Fetching files from the current commit..."
+            sql_files=$(git ls-tree --name-only HEAD)
+          fi
 
           # Filter for SQL files
           sql_files=$(echo "$sql_files" | grep '\.sql$')
