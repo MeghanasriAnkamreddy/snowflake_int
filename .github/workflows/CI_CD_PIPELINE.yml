@@ -1,5 +1,3 @@
-# Very basic GitHub Action workflow, goes in ~/.github/workflows/deploy.yaml
-
 name: CI
 
 # Controls when the workflow will run
@@ -8,7 +6,9 @@ on:
   push:
     branches:
       - "*"
-      
+    tags:
+      - "v*"
+
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
@@ -19,7 +19,7 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      # Checks out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
 
       - name: Install SnowSQL
@@ -31,8 +31,8 @@ jobs:
         run: |
           ~/bin/snowsql --version
 
-      # Run a SnowSQL Command using environment variables for Snowflake connection details
-      - name: Run SnowSQL Command
+      # Fetch and execute the latest committed SQL scripts
+      - name: Run Latest SQL Scripts
         env:
           SNOWSQL_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           SNOWSQL_USER: ${{ secrets.SNOWFLAKE_USER }}
@@ -40,8 +40,21 @@ jobs:
           SNOWSQL_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
           SNOWSQL_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
         run: |
-          ~/bin/snowsql -q "SELECT CURRENT_VERSION();"
-          ~/bin/snowsql -q "ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH;"
-          ~/bin/snowsql -q "USE DATABASE CI_CD_DEMO;
-                            USE SCHEMA DEMO_SCHEMA;
-                            EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/SQL_SCRIPT.SQL;"
+          # Fetch the latest committed SQL script files from the repository
+          echo "Fetching the latest SQL scripts..."
+          git fetch origin
+          
+          # Get the list of the most recent SQL script files (e.g., *.sql)
+          sql_files=$(git diff --name-only HEAD~1 HEAD -- '*.sql')
+
+          # Check if there are any SQL files to execute
+          if [ -z "$sql_files" ]; then
+            echo "No new SQL scripts found to execute."
+          else
+            # Loop through each SQL file and execute it
+            for sql_file in $sql_files; do
+              echo "Executing SQL script: $sql_file"
+              output=$(~/bin/snowsql -q "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @$sql_file;")
+              echo "$output"
+            done
+          fi
