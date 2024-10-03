@@ -1,3 +1,5 @@
+# Very basic GitHub Action workflow, goes in ~/.github/workflows/deploy.yaml
+
 name: CI
 
 # Controls when the workflow will run
@@ -19,7 +21,7 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Checks out your repository under $GITHUB_WORKSPACE, so your job can access it
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
 
       - name: Install SnowSQL
@@ -31,8 +33,8 @@ jobs:
         run: |
           ~/bin/snowsql --version
 
-      # Fetch and execute the latest committed SQL scripts
-      - name: Run Latest SQL Scripts
+      # Run a SnowSQL Command using environment variables for Snowflake connection details
+      - name: Run SnowSQL Command
         env:
           SNOWSQL_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           SNOWSQL_USER: ${{ secrets.SNOWFLAKE_USER }}
@@ -40,31 +42,8 @@ jobs:
           SNOWSQL_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
           SNOWSQL_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
         run: |
-          # Fetch the latest changes from the remote repository
-          echo "Fetching the latest changes..."
-          git fetch origin
-
-          # Check if HEAD has a previous commit
-          if git rev-parse --quiet --verify HEAD~1; then
-            echo "Fetching all files from the latest commit..."
-            sql_files=$(git diff --name-only HEAD~1 HEAD)
-          else
-            echo "No previous commits found. Fetching files from the current commit..."
-            sql_files=$(git ls-tree --name-only HEAD)
-          fi
-
-          # Filter for SQL files
-          sql_files=$(echo "$sql_files" | grep '\.sql$')
-
-          # Check if there are any SQL files to execute
-          if [ -z "$sql_files" ]; then
-            echo "No new SQL scripts found to execute."
-          else
-            # Loop through each SQL file and execute it
-            for sql_file in $sql_files; do
-              echo "Executing SQL script: $sql_file"
-              # Execute the SQL script using SnowSQL
-              output=$(~/bin/snowsql -q "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @$sql_file;")
-              echo "$output"
-            done
-          fi
+          ~/bin/snowsql -q "SELECT CURRENT_VERSION();"
+          ~/bin/snowsql -q "ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH;"
+          ~/bin/snowsql -q "USE DATABASE CI_CD_DEMO;
+                            USE SCHEMA DEMO_SCHEMA;
+                            EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/SQL_SCRIPT.SQL;"
