@@ -40,6 +40,10 @@ jobs:
           # Get the latest SQL script file names dynamically
           sql_files=$(git ls-tree -r HEAD --name-only | grep '\.SQL$')
 
+          # Log the SQL files identified
+          echo "SQL files found in the latest commit:"
+          echo "$sql_files"
+
           # Loop through each SQL file and execute
           for latest_file in $sql_files; do
             echo "Trying to execute SQL script: $latest_file..."
@@ -57,23 +61,34 @@ jobs:
               echo "Detected error in output: $output"
               echo "Moving to fallback (previous version)..."
 
-              # Instead of using commit hash, use previous HEAD for fallback
+              # Checkout the previous commit
               git checkout HEAD~1  # Switch to the previous commit
 
-              # Execute the previous version
-              output_fallback=$(~/bin/snowsql -q "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$latest_file;" 2>&1)
-              status_fallback=$?
+              # Log the files in the previous commit to ensure the SQL script is available
+              echo "Checking files in previous commit:"
+              git ls-tree -r HEAD --name-only | grep '\.SQL$'
 
-              # Output the status of the fallback command
-              echo "Execution status for previous version of $latest_file: $status_fallback"
-              echo "Fallback Output: $output_fallback"
+              # Check if the file exists in the previous commit before executing
+              if git ls-tree -r HEAD --name-only | grep -q "$latest_file"; then
+                echo "Found $latest_file in previous commit. Executing fallback..."
 
-              # Check if the fallback execution was successful
-              if [ $status_fallback -ne 0 ] || [[ "$output_fallback" == *"Uncaught exception"* ]] || [[ "$output_fallback" == *"SQL compilation error"* ]]; then
-                echo "Failed to execute both the latest and previous versions of $latest_file. Error: $output_fallback"
-                exit 1  # Exit with failure if both attempts fail
+                # Execute the previous version
+                output_fallback=$(~/bin/snowsql -q "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$latest_file;" 2>&1)
+                status_fallback=$?
+
+                # Output the status of the fallback command
+                echo "Execution status for previous version of $latest_file: $status_fallback"
+                echo "Fallback Output: $output_fallback"
+
+                # Check if the fallback execution was successful
+                if [ $status_fallback -ne 0 ] || [[ "$output_fallback" == *"Uncaught exception"* ]] || [[ "$output_fallback" == *"SQL compilation error"* ]]; then
+                  echo "Failed to execute both the latest and previous versions of $latest_file. Error: $output_fallback"
+                  exit 1  # Exit with failure if both attempts fail
+                else
+                  echo "Previous version of $latest_file executed successfully."
+                fi
               else
-                echo "Previous version of $latest_file executed successfully."
+                echo "$latest_file does not exist in the previous commit. Skipping fallback."
               fi
 
               # Switch back to the main branch after fallback
