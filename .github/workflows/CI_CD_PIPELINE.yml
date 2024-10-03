@@ -42,7 +42,7 @@ jobs:
           echo "Modified files:"
           cat modified_files.txt
           # Filter only SQL files, and ensure the script continues even if no SQL files are found
-          grep '\.sql$' modified_files.txt > sql_files.txt || true
+          grep '\.SQL$' modified_files.txt > sql_files.txt || true
           # Debug: Show filtered SQL files
           if [ -s sql_files.txt ]; then
             echo "Modified SQL files:"
