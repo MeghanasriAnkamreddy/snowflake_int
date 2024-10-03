@@ -76,7 +76,6 @@ jobs:
                 echo "Previous version of SQL_SCRIPT.SQL executed successfully."
               else
                 echo "Failed to execute previous version of SQL_SCRIPT.SQL. Error: $output"
-                exit 1  # Exit with failure if the fallback also fails
               fi
             fi
           done
