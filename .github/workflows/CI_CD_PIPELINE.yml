@@ -37,15 +37,18 @@ jobs:
         run: |
           echo "Getting modified SQL files..."
           git fetch origin main  # Fetch latest from remote
-          
-          # Get the list of modified files in the last commit
-          git diff --name-only HEAD^ HEAD | grep '\.sql$' > modified_files.txt || echo "No modified SQL files found."
 
-          # Check if modified_files.txt is empty
-          if [ ! -s modified_files.txt ]; then
+          # Get the list of modified files in the latest commit
+          modified_files=$(git diff --name-only HEAD~1 HEAD | grep '\.sql$')
+
+          # Check if any modified files were found
+          if [ -z "$modified_files" ]; then
             echo "No modified SQL files found."
+            echo "::set-output name=modified_files::"  # Set output to empty if no files found
           else
-            cat modified_files.txt
+            echo "$modified_files"
+            echo "$modified_files" > modified_files.txt
+            echo "::set-output name=modified_files::$modified_files"  # Set output with the list of files
           fi
 
       # Run SnowSQL commands for each modified SQL file
@@ -61,9 +64,13 @@ jobs:
           ~/bin/snowsql -q "ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH;"
 
           echo "Executing modified SQL files..."
-          while IFS= read -r sql_file; do
-            echo "Executing $sql_file..."
-            ~/bin/snowsql -q "USE DATABASE CI_CD_DEMO;
-                              USE SCHEMA DEMO_SCHEMA;
-                              EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$sql_file;"
-          done < modified_files.txt || echo "No SQL files to execute."
+          if [[ -f modified_files.txt ]]; then
+            while IFS= read -r sql_file; do
+              echo "Executing $sql_file..."
+              ~/bin/snowsql -q "USE DATABASE CI_CD_DEMO;
+                                USE SCHEMA DEMO_SCHEMA;
+                                EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$sql_file;"
+            done < modified_files.txt
+          else
+            echo "No SQL files to execute."
+          fi
