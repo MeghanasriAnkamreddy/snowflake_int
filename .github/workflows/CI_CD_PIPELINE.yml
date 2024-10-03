@@ -46,33 +46,39 @@ jobs:
             return $?  # Return the exit status of the SnowSQL command
           }
 
-          # Commands to run
-          commands=(
-            "SELECT CURRENT_VERSION();"
-            "ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH;"
-            "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/SQL_SCRIPT.SQL;"
-          )
+          # Get a list of newly committed SQL files
+          sql_files=$(git diff --name-only HEAD HEAD~1 | grep '\.sql$')
 
-          for command in "${commands[@]}"; do
-            echo "Running command: $command"
+          # Check if any SQL files were found
+          if [ -z "$sql_files" ]; then
+            echo "No new SQL files to process."
+            exit 0  # Exit if there are no new SQL files
+          fi
+
+          # Loop through each SQL file and execute it
+          for sql_file in $sql_files; do
+            echo "Processing SQL file: $sql_file"
+            
+            # Read the SQL command from the file
+            sql_command=$(<"$sql_file")
 
             # Try to execute the command
-            if execute_snow_sql "$command"; then
-              echo "Command succeeded."
+            if execute_snow_sql "$sql_command"; then
+              echo "Command succeeded for $sql_file."
             else
-              echo "Command failed: $command. Error: $output"
+              echo "Command failed for $sql_file. Error: $output"
               echo "Executing last committed version..."
 
-              # Checkout the last committed version of the SQL script
-              git checkout HEAD~1 --force
+              # Checkout the last committed version of the SQL file
+              git checkout HEAD~1 --force "$sql_file"
 
-              # Re-execute the last committed version of the script
-              last_command="USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/SQL_SCRIPT.SQL;"
-              execute_snow_sql "$last_command"
+              # Read the last committed version of the SQL command
+              last_sql_command=$(<"$sql_file")
+              execute_snow_sql "$last_sql_command"
               if [ $? -eq 0 ]; then
-                echo "Previous version of SQL_SCRIPT.SQL executed successfully."
+                echo "Previous version of $sql_file executed successfully."
               else
-                echo "Failed to execute previous version of SQL_SCRIPT.SQL. Error: $output"
+                echo "Failed to execute previous version of $sql_file. Error: $output"
                 exit 1  # Exit with failure if the fallback also fails
               fi
             fi
