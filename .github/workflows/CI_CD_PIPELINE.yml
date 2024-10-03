@@ -49,9 +49,9 @@ jobs:
             echo "Execution status for $latest_file: $status"
             echo "Output: $output"
 
-            # Check if the execution was successful
-            if [ $status -ne 0 ]; then
-              echo "Failed to execute $latest_file. Error: $output"
+            # Check for error messages in the output (in addition to status code)
+            if [[ "$output" == *"Uncaught exception"* ]] || [[ "$output" == *"SQL compilation error"* ]]; then
+              echo "Detected error in output: $output"
               echo "Moving to fallback (previous version)..."
 
               # Construct the path for the previous version
@@ -67,7 +67,7 @@ jobs:
               echo "Fallback Output: $output_fallback"
 
               # Check if the fallback execution was successful
-              if [ $status_fallback -ne 0 ]; then
+              if [ $status_fallback -ne 0 ] || [[ "$output_fallback" == *"Uncaught exception"* ]] || [[ "$output_fallback" == *"SQL compilation error"* ]]; then
                 echo "Failed to execute both the latest and previous versions of $latest_file. Error: $output_fallback"
                 exit 1  # Exit with failure if both attempts fail
               else
