@@ -26,7 +26,7 @@ jobs:
       - name: Check SnowSQL Version
         run: ~/bin/snowsql --version
 
-      - name: Execute SQL with Try-Catch Logic
+      - name: Execute SQL with Fallback Logic
         env:
           SNOWSQL_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           SNOWSQL_USER: ${{ secrets.SNOWFLAKE_USER }}
@@ -34,9 +34,7 @@ jobs:
           SNOWSQL_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
           SNOWSQL_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
         run: |
-          ~/bin/snowsql -q "ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH;"
-
-          # Get the latest SQL script file names dynamically
+          # Fetch the latest SQL script file names dynamically
           sql_files=$(git ls-tree -r HEAD --name-only | grep '\.SQL$')
 
           # Log the SQL files identified
@@ -55,15 +53,15 @@ jobs:
             echo "Execution status for $latest_file: $status"
             echo "Output: $output"
 
-            # Check for error messages in the output (in addition to status code)
-            if [[ "$output" == *"Uncaught exception"* ]] || [[ "$output" == *"SQL compilation error"* ]]; then
-              echo "Detected error in output: $output"
+            # Check for errors in the output or the status
+            if [ $status -ne 0 ]; then
+              echo "Error detected for $latest_file: $output"
               echo "Moving to fallback (previous version)..."
 
               # Checkout the previous commit
               git checkout HEAD~1 --force  # Switch to the previous commit
 
-              # Check if the file exists in the previous commit before executing
+              # Check if the file exists in the previous commit
               if git ls-tree -r HEAD --name-only | grep -q "$latest_file"; then
                 echo "Found $latest_file in previous commit. Executing fallback..."
 
@@ -76,7 +74,7 @@ jobs:
                 echo "Fallback Output: $output_fallback"
 
                 # Check if the fallback execution was successful
-                if [ $status_fallback -ne 0 ] || [[ "$output_fallback" == *"Uncaught exception"* ]] || [[ "$output_fallback" == *"SQL compilation error"* ]]; then
+                if [ $status_fallback -ne 0 ]; then
                   echo "Failed to execute both the latest and previous versions of $latest_file. Error: $output_fallback"
                   exit 1  # Exit with failure if both attempts fail
                 else
