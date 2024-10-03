@@ -57,12 +57,11 @@ jobs:
               echo "Detected error in output: $output"
               echo "Moving to fallback (previous version)..."
 
-              # Construct the path for the previous version
-              previous_file="branches/main/$(git rev-parse HEAD~1):$latest_file"
-              echo "Attempting to run previous version: $previous_file"
+              # Instead of using commit hash, use previous HEAD for fallback
+              git checkout HEAD~1  # Switch to the previous commit
 
-              # Execute the previous version and capture the output
-              output_fallback=$(~/bin/snowsql -q "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/${previous_file};" 2>&1)
+              # Execute the previous version
+              output_fallback=$(~/bin/snowsql -q "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/$latest_file;" 2>&1)
               status_fallback=$?
 
               # Output the status of the fallback command
@@ -76,6 +75,9 @@ jobs:
               else
                 echo "Previous version of $latest_file executed successfully."
               fi
+
+              # Switch back to the main branch after fallback
+              git checkout -
             else
               echo "$latest_file executed successfully."
             fi
