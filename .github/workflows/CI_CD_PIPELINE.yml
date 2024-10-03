@@ -1,3 +1,5 @@
+# Very basic GitHub Action workflow, goes in ~/.github/workflows/deploy.yaml
+
 name: CI
 
 # Controls when the workflow will run
@@ -17,7 +19,7 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      # Checks out your repository under $GITHUB_WORKSPACE, so your job can access it
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
 
       - name: Install SnowSQL
@@ -29,7 +31,7 @@ jobs:
         run: |
           ~/bin/snowsql --version
 
-      # Run a series of SnowSQL commands
+      # Run a SnowSQL Command using environment variables for Snowflake connection details
       - name: Run SnowSQL Command
         env:
           SNOWSQL_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
@@ -38,44 +40,8 @@ jobs:
           SNOWSQL_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
           SNOWSQL_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
         run: |
-          # Define a function to execute SnowSQL commands and handle errors
-          execute_snow_sql() {
-            output=$(/bin/bash -c "~/bin/snowsql -q \"$1\" 2>&1")  # Capture output and error
-            echo "$output"  # Log output for debugging
-            return $?  # Return the exit status
-          }
-
-          # Commands to run
-          commands=(
-            "SELECT CURRENT_VERSION();"
-            "ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH;"
-            "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/SQL_SCRIPT.SQL;"
-          )
-
-          # Loop through each command and run it
-          for command in "${commands[@]}"; do
-            echo "Running command: $command"
-            output=$(execute_snow_sql "$command")
-            exit_status=$?
-
-            if [ $exit_status -eq 0 ]; then
-              echo "Command succeeded."
-            else
-              echo "Command failed: $command. Error: $output"
-              echo "Continuing to next command..."
-
-              # Checkout the last committed version of the SQL script
-              echo "Checking out last committed version of the SQL_SCRIPT.SQL..."
-              git checkout HEAD~1 --force
-
-              # Attempt to execute the last committed version of the script
-              last_command="USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/SQL_SCRIPT.SQL;"
-              echo "Executing previous version: $last_command"
-              output=$(execute_snow_sql "$last_command")
-              if [ $? -eq 0 ]; then
-                echo "Previous version of SQL_SCRIPT.SQL executed successfully."
-              else
-                echo "Failed to execute previous version of SQL_SCRIPT.SQL. Error: $output"
-              fi
-            fi
-          done
+          ~/bin/snowsql -q "SELECT CURRENT_VERSION();"
+          ~/bin/snowsql -q "ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH;"
+          ~/bin/snowsql -q "USE DATABASE CI_CD_DEMO;
+                            USE SCHEMA DEMO_SCHEMA;
+                            EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/SQL_SCRIPT.SQL;"
