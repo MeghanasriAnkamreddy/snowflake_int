@@ -13,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # Fetch full commit history
+          fetch-depth: 0  # Fetch full commit history for accessing previous commits
 
       - name: Install SnowSQL
         run: |
@@ -21,8 +21,7 @@ jobs:
           SNOWSQL_DEST=~/bin SNOWSQL_LOGIN_SHELL=~/.profile bash snowsql-1.2.9-linux_x86_64.bash
 
       - name: Check SnowSQL Version
-        run: |
-          ~/bin/snowsql --version
+        run: ~/bin/snowsql --version
 
       - name: Get the list of modified SQL scripts
         id: modified_files
@@ -51,11 +50,6 @@ jobs:
             echo "No SQL files modified."
           fi
 
-      - name: Debug SQL files
-        run: |
-          echo "SQL files to execute:"
-          cat sql_files.txt || echo "No SQL files found."
-
       - name: Run SnowSQL Command with Error Handling
         env:
           SNOWSQL_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
@@ -66,20 +60,19 @@ jobs:
         run: |
           set -e  # Enable exit on error for safe blocks
 
-          # Fetch latest from Snowflake repository with exit on error
+          # Fetch latest from Snowflake repository
           ~/bin/snowsql -o exit_on_error=true -q "ALTER GIT REPOSITORY CI_CD_DEMO.DEMO_SCHEMA.snowflake_extensions FETCH;"
 
           # Check if sql_files.txt is not empty before proceeding
           if [ -s sql_files.txt ]; then
-            # Initialize an error log
             error_log="error_log.txt"
             > "$error_log"  # Empty the error log file if it exists
 
             while IFS= read -r file; do
               echo "Running SQL file: $file"
-              set +e  # Disable exit on error to handle it manually
+              set +e  # Disable exit on error to handle errors manually
 
-              # Execute the current version of the SQL file with exit_on_error
+              # Try executing the current SQL file from Snowflake stage
               ~/bin/snowsql -o exit_on_error=true -q "
                 USE DATABASE CI_CD_DEMO;
                 USE SCHEMA DEMO_SCHEMA;
@@ -87,24 +80,31 @@ jobs:
               EXIT_CODE=$?
 
               if [ $EXIT_CODE -ne 0 ]; then
-                echo "Error executing $file. Attempting to run the previous commit's version."
+                echo "Error executing $file. Fetching the previous version from Git."
 
-                # Attempt to fetch the previous version of the SQL file
+                # Fetch the previous version of the SQL file using git show
                 if git show HEAD~1:$file > prev_commit.sql 2>/dev/null; then
-                  echo "Running previous version of $file"
-                  ~/bin/snowsql -o exit_on_error=true -q "
-                    USE DATABASE CI_CD_DEMO;
-                    USE SCHEMA DEMO_SCHEMA;
-                    EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/prev_commit.sql;"
+                  echo "Running the previous version of $file"
+
+                  # Prepend necessary context commands to the previous SQL script
+                  echo "USE DATABASE CI_CD_DEMO;
+USE SCHEMA DEMO_SCHEMA;" > temp_prev_commit.sql
+                  cat prev_commit.sql >> temp_prev_commit.sql
+
+                  # Execute the previous commit's SQL file locally
+                  ~/bin/snowsql -o exit_on_error=true -f temp_prev_commit.sql
                   PREV_EXIT_CODE=$?
 
                   if [ $PREV_EXIT_CODE -ne 0 ]; then
-                    echo "Error executing previous version of $file." | tee -a "$error_log"
+                    echo "Error executing the previous version of $file." | tee -a "$error_log"
                   else
                     echo "Previous version of $file executed successfully."
                   fi
+
+                  # Clean up temporary files
+                  rm temp_prev_commit.sql prev_commit.sql
                 else
-                  echo "Failed to fetch previous commit for $file. Skipping..." | tee -a "$error_log"
+                  echo "Failed to fetch the previous version of $file. Skipping..." | tee -a "$error_log"
                 fi
               else
                 echo "$file executed successfully."
