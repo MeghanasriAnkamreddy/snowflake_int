@@ -42,7 +42,7 @@ jobs:
         run: |
           # Define a function to execute the SnowSQL command
           execute_snow_sql() {
-            ~/bin/snowsql -q "$1"
+            output=$(/bin/bash -c "~/bin/snowsql -q \"$1\" 2>&1")  # Capture output and error
             return $?  # Return the exit status of the SnowSQL command
           }
 
@@ -60,12 +60,20 @@ jobs:
             if execute_snow_sql "$command"; then
               echo "Command succeeded."
             else
-              echo "Command failed: $command. Executing last committed version..."
+              echo "Command failed: $command. Error: $output"
+              echo "Executing last committed version..."
 
               # Checkout the last committed version of the SQL script
               git checkout HEAD~1 --force
 
-              # Execute the last committed version of the script
-              execute_snow_sql "USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/SQL_SCRIPT.SQL;"
+              # Re-execute the last committed version of the script
+              last_command="USE DATABASE CI_CD_DEMO; USE SCHEMA DEMO_SCHEMA; EXECUTE IMMEDIATE FROM @snowflake_extensions/branches/main/SQL_SCRIPT.SQL;"
+              execute_snow_sql "$last_command"
+              if [ $? -eq 0 ]; then
+                echo "Previous version of SQL_SCRIPT.SQL executed successfully."
+              else
+                echo "Failed to execute previous version of SQL_SCRIPT.SQL. Error: $output"
+                exit 1  # Exit with failure if the fallback also fails
+              fi
             fi
           done
