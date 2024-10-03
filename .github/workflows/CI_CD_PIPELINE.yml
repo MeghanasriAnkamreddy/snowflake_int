@@ -88,7 +88,7 @@ jobs:
 
                   # Prepend necessary context commands to the previous SQL script
                   echo "USE DATABASE CI_CD_DEMO;
-USE SCHEMA DEMO_SCHEMA;" > temp_prev_commit.sql
+                        USE SCHEMA DEMO_SCHEMA;" > temp_prev_commit.sql
                   cat prev_commit.sql >> temp_prev_commit.sql
 
                   # Execute the previous commit's SQL file locally
