@@ -31,20 +31,22 @@ jobs:
         run: |
           ~/bin/snowsql --version
 
-      # Get list of modified SQL files from the last commit
+      # Get list of modified SQL files from the latest commit
       - name: Get Modified SQL Files
         id: get_modified_files
         run: |
           echo "Getting modified SQL files..."
           git fetch origin main  # Fetch latest from remote
-          # Check if there's more than one commit in the repository
-          if [ $(git rev-list --count HEAD) -gt 1 ]; then
-            git diff --name-only HEAD^ HEAD | grep '\.sql$' > modified_files.txt
+          
+          # Get the list of modified files in the last commit
+          git diff --name-only HEAD^ HEAD | grep '\.sql$' > modified_files.txt || echo "No modified SQL files found."
+
+          # Check if modified_files.txt is empty
+          if [ ! -s modified_files.txt ]; then
+            echo "No modified SQL files found."
           else
-            # If there is only one commit, just list .sql files in the current commit
-            git diff --name-only HEAD~1 HEAD | grep '\.sql$' > modified_files.txt || echo "No modified SQL files found."
+            cat modified_files.txt
           fi
-          cat modified_files.txt || echo "No modified SQL files found."
 
       # Run SnowSQL commands for each modified SQL file
       - name: Execute Modified SQL Files
